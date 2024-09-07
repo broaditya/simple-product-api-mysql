@@ -1,12 +1,11 @@
 const express = require("express");
-const bodyParser = require("body-parser");
+const { body, validationResult } = require("express-validator");
 const mysql = require("mysql2/promise");
 require("dotenv").config();
 
 const app = express();
 const port = 3000;
 
-// Konfigurasi koneksi database MySQL
 const pool = mysql.createPool({
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
@@ -15,70 +14,77 @@ const pool = mysql.createPool({
   port: process.env.DB_PORT,
 });
 
-app.use(bodyParser.json());
+app.use(express.json());
 
 // CREATE: Add new product
-app.post("/products", async (req, res) => {
-  const {
-    product_name,
-    product_description,
-    product_price,
-    product_variety,
-    product_rating,
-    product_stock,
-  } = req.body;
+app.post(
+  "/products",
+  [
+    body("product_name").notEmpty().withMessage("Product name is required"),
+    body("product_price")
+      .notEmpty()
+      .withMessage("Product price is required")
+      .isFloat({ min: 0 })
+      .withMessage("Price must be a non-negative number"),
+    body("product_stock")
+      .notEmpty()
+      .withMessage("Product stock is required")
+      .isInt({ min: 0 })
+      .withMessage("Stock must be a non-negative integer"),
+    body("product_rating")
+      .optional()
+      .isFloat({ min: 0, max: 5 })
+      .withMessage("Rating must be between 0 and 5"),
+  ],
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
 
-  // Validasi data
-  if (
-    product_price < 0 ||
-    product_stock < 0 ||
-    product_rating < 0 ||
-    product_rating > 5
-  ) {
-    return res
-      .status(400)
-      .json({
-        error:
-          "Invalid product data: price and stock must be non-negative, rating must be between 0 and 5.",
-      });
-  }
+    const {
+      product_name,
+      product_description,
+      product_price,
+      product_variety,
+      product_rating,
+      product_stock,
+    } = req.body;
 
-  try {
-    const [result] = await pool.execute(
-      "INSERT INTO products (product_name, product_description, product_price, product_variety, product_rating, product_stock) VALUES (?, ?, ?, ?, ?, ?)",
-      [
-        product_name,
-        product_description,
-        product_price,
-        product_variety,
-        product_rating,
-        product_stock,
-      ]
-    );
-    res.status(201).json({ product_id: result.insertId, ...req.body });
-  } catch (err) {
-    // Handling error spesifik berdasarkan kode error MySQL
-    if (err.code === "ER_DUP_ENTRY") {
-      res
-        .status(409)
-        .json({
-          error:
-            "Duplicate entry: a product with the same name already exists.",
-        });
-    } else if (err.code === "ER_BAD_NULL_ERROR") {
-      res.status(400).json({ error: "Bad request: missing required fields." });
-    } else {
+    try {
+      const [result] = await pool.execute(
+        "INSERT INTO products (product_name, product_description, product_price, product_variety, product_rating, product_stock) VALUES (?, ?, ?, ?, ?, ?)",
+        [
+          product_name,
+          product_description,
+          product_price,
+          product_variety,
+          product_rating,
+          product_stock,
+        ]
+      );
+      res.status(201).json({ product_id: result.insertId, ...req.body });
+      console.log(`Success create product name: ${product_name}`);
+    } catch (err) {
       res.status(500).json({ error: `Database error: ${err.message}` });
+      console.log(
+        `Failed create product name: ${product_name} error: ${err.message}`
+      );
     }
   }
-});
+);
 
 // READ: Get all products
 app.get("/products", async (req, res) => {
   try {
     const [rows] = await pool.execute("SELECT * FROM products");
+    if (rows.length === 0) {
+      return res.status(404).json({ message: "No Product" });
+    }
     res.json(rows);
+    console.log(`Success Get all products`);
   } catch (err) {
+    console.log(`Failde Get all products error: ${err.message}`);
     res.status(500).json({ error: `Database error: ${err.message}` });
   }
 });
@@ -92,69 +98,81 @@ app.get("/products/:id", async (req, res) => {
       [id]
     );
     if (rows.length === 0) {
+      console.log(`Get product id: ${id} not found`);
       return res
         .status(404)
         .json({ error: `Product with ID ${id} not found.` });
     }
+    console.log(`Success Get product id: ${id}`);
     res.json(rows[0]);
   } catch (err) {
+    console.log(`Failed Get product id: ${id} error: ${err.message}`);
     res.status(500).json({ error: `Database error: ${err.message}` });
   }
 });
 
-// UPDATE: Update product details
-app.put("/products/:id", async (req, res) => {
-  const { id } = req.params;
-  const {
-    product_name,
-    product_description,
-    product_price,
-    product_variety,
-    product_rating,
-    product_stock,
-  } = req.body;
-
-  if (
-    product_price < 0 ||
-    product_stock < 0 ||
-    product_rating < 0 ||
-    product_rating > 5
-  ) {
-    return res
-      .status(400)
-      .json({
-        error:
-          "Invalid product data: price and stock must be non-negative, rating must be between 0 and 5.",
-      });
-  }
-
-  try {
-    const [result] = await pool.execute(
-      "UPDATE products SET product_name = ?, product_description = ?, product_price = ?, product_variety = ?, product_rating = ?, product_stock = ?, updated_at = CURRENT_TIMESTAMP WHERE product_id = ?",
-      [
-        product_name,
-        product_description,
-        product_price,
-        product_variety,
-        product_rating,
-        product_stock,
-        id,
-      ]
-    );
-    if (result.affectedRows === 0) {
-      return res
-        .status(404)
-        .json({ error: `Product with ID ${id} not found.` });
+// UPDATE: Update product
+app.put(
+  "/products/:id",
+  [
+    body("product_name").notEmpty().withMessage("Product name is required"),
+    body("product_price")
+      .notEmpty()
+      .withMessage("Product price is required")
+      .isFloat({ min: 0 })
+      .withMessage("Price must be a non-negative number"),
+    body("product_stock")
+      .notEmpty()
+      .withMessage("Product stock is required")
+      .isInt({ min: 0 })
+      .withMessage("Stock must be a non-negative integer"),
+    body("product_rating")
+      .optional()
+      .isFloat({ min: 0, max: 5 })
+      .withMessage("Rating must be between 0 and 5"),
+  ],
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
     }
-    res.json({ message: "Product updated successfully" });
-  } catch (err) {
-    if (err.code === "ER_BAD_FIELD_ERROR") {
-      res.status(400).json({ error: "Bad request: invalid field values." });
-    } else {
+
+    const { id } = req.params;
+    const {
+      product_name,
+      product_description,
+      product_price,
+      product_variety,
+      product_rating,
+      product_stock,
+    } = req.body;
+
+    try {
+      const [result] = await pool.execute(
+        "UPDATE products SET product_name = ?, product_description = ?, product_price = ?, product_variety = ?, product_rating = ?, product_stock = ?, updated_at = CURRENT_TIMESTAMP WHERE product_id = ?",
+        [
+          product_name,
+          product_description,
+          product_price,
+          product_variety,
+          product_rating,
+          product_stock,
+          id,
+        ]
+      );
+      if (result.affectedRows === 0) {
+        return res
+          .status(404)
+          .json({ error: `Product with ID ${id} not found.` });
+      }
+      console.log(`Success update product id: ${id}`);
+      res.json({ message: "Product updated successfully" });
+    } catch (err) {
+      console.log(`Failed update product id: ${id} error: ${err.message}`);
       res.status(500).json({ error: `Database error: ${err.message}` });
     }
   }
-});
+);
 
 // DELETE: Remove product
 app.delete("/products/:id", async (req, res) => {
@@ -165,12 +183,15 @@ app.delete("/products/:id", async (req, res) => {
       [id]
     );
     if (result.affectedRows === 0) {
+      console.log(`delete product id: ${id} not found`);
       return res
         .status(404)
         .json({ error: `Product with ID ${id} not found.` });
     }
+    console.log(`Success delete product id: ${id}`);
     res.json({ message: "Product deleted successfully" });
   } catch (err) {
+    console.log(`Failed delete product id: ${id} error: ${err.message}`);
     res.status(500).json({ error: `Database error: ${err.message}` });
   }
 });
