@@ -6,35 +6,71 @@ require("dotenv").config();
 const app = express();
 const port = 3000;
 
-const pool = mysql.createPool({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  port: process.env.DB_PORT,
-});
+let pool;
+
+try {
+  pool = mysql.createPool({
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
+    port: process.env.DB_PORT,
+  });
+
+  pool
+    .getConnection()
+    .then((connection) => {
+      console.log("Connected to MySQL database.");
+      connection.release();
+    })
+    .catch((err) => {
+      console.error("Failed to connect to MySQL:", err.message);
+      process.exit(1); // Exit process if connection fails
+    });
+} catch (err) {
+  console.error("Error setting up MySQL connection pool:", err.message);
+  process.exit(1);
+}
 
 app.use(express.json());
+app.use((err, req, res, next) => {
+  if (err.type === "entity.parse.failed") {
+    return res.status(400).json({ error: "Invalid JSON payload" });
+  }
+  next(err);
+});
+
+const validateProductName = () =>
+  body("product_name").notEmpty().withMessage("Product name is required");
+
+const validateProductPrice = () =>
+  body("product_price")
+    .notEmpty()
+    .withMessage("Product price is required")
+    .isFloat({ min: 0 })
+    .withMessage("Price must be a non-negative number");
+
+const validateProductStock = () =>
+  body("product_stock")
+    .notEmpty()
+    .withMessage("Product stock is required")
+    .isInt({ min: 0 })
+    .withMessage("Stock must be a non-negative integer");
+
+const validateProductRating = () =>
+  body("product_rating")
+    .optional()
+    .isFloat({ min: 0, max: 5 })
+    .withMessage("Rating must be between 0 and 5");
 
 // CREATE: Add new product
 app.post(
   "/products",
   [
-    body("product_name").notEmpty().withMessage("Product name is required"),
-    body("product_price")
-      .notEmpty()
-      .withMessage("Product price is required")
-      .isFloat({ min: 0 })
-      .withMessage("Price must be a non-negative number"),
-    body("product_stock")
-      .notEmpty()
-      .withMessage("Product stock is required")
-      .isInt({ min: 0 })
-      .withMessage("Stock must be a non-negative integer"),
-    body("product_rating")
-      .optional()
-      .isFloat({ min: 0, max: 5 })
-      .withMessage("Rating must be between 0 and 5"),
+    validateProductName(),
+    validateProductPrice(),
+    validateProductStock(),
+    validateProductRating(),
   ],
   async (req, res) => {
     const errors = validationResult(req);
@@ -44,10 +80,10 @@ app.post(
 
     const {
       product_name,
-      product_description,
+      product_description = null,
       product_price,
-      product_variety,
-      product_rating,
+      product_variety = null,
+      product_rating = null,
       product_stock,
     } = req.body;
 
@@ -84,7 +120,7 @@ app.get("/products", async (req, res) => {
     res.json(rows);
     console.log(`Success Get all products`);
   } catch (err) {
-    console.log(`Failde Get all products error: ${err.message}`);
+    console.log(`Failed Get all products error: ${err.message}`);
     res.status(500).json({ error: `Database error: ${err.message}` });
   }
 });
@@ -115,21 +151,10 @@ app.get("/products/:id", async (req, res) => {
 app.put(
   "/products/:id",
   [
-    body("product_name").notEmpty().withMessage("Product name is required"),
-    body("product_price")
-      .notEmpty()
-      .withMessage("Product price is required")
-      .isFloat({ min: 0 })
-      .withMessage("Price must be a non-negative number"),
-    body("product_stock")
-      .notEmpty()
-      .withMessage("Product stock is required")
-      .isInt({ min: 0 })
-      .withMessage("Stock must be a non-negative integer"),
-    body("product_rating")
-      .optional()
-      .isFloat({ min: 0, max: 5 })
-      .withMessage("Rating must be between 0 and 5"),
+    validateProductName(),
+    validateProductPrice(),
+    validateProductStock(),
+    validateProductRating(),
   ],
   async (req, res) => {
     const errors = validationResult(req);
@@ -140,10 +165,10 @@ app.put(
     const { id } = req.params;
     const {
       product_name,
-      product_description,
+      product_description = null,
       product_price,
-      product_variety,
-      product_rating,
+      product_variety = null,
+      product_rating = null,
       product_stock,
     } = req.body;
 
