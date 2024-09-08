@@ -194,10 +194,66 @@ The application will be available at http://localhost:3000, and MySQL will be av
 
 ## Endpoints
 * **POST /products** : Create a new product.
+  
+| Method        | POST           | 
+|---------------------|----------------------|
+| URL       | /products              |
+| Path Parameters    |-       | 
+|Request Body Type | JSON             |
+| Request Body    | { "name": "Product Name", "description": "Product Description", "price": 99.99, "variety": "Size, Color", "rating": 4.5, "stock": 100 }    |
+| Response (201 Created)   | { "product_name": "Laptop SNSV", "product_description": "Laptop dengan spesifikasi tinggi", "product_price": 10.00, "product_variety": "Gaming", "product_rating": 4.5, "product_stock": 10 }   |
+| Error (400 Bad Request)  | { "errors": [ { "msg": "Product name is required", "param": "product_name", "location": "body" }, { "msg": "Price must be a non-negative number", "param": "product_price", "location": "body" }, { "msg": "Stock must be a non-negative integer", "param": "product_stock", "location": "body" } ] }  | 
+| Error (500 Internal Server Error)   |{ "error": "Database error: [error message]" }             | 
+
 * **GET /products** : Get all products.
+
+| Method        | GET           | 
+|---------------------|----------------------|
+| URL       | /products              |
+| Path Parameters    |-       | 
+|Request Body Type | -            |
+| Request Body    | -  |
+| Response (200 OK)   | [ { "product_id": 1, "product_name": "Laptop SNSV", "product_description": "Laptop dengan spesifikasi tinggi", "product_price": 10.00, "product_variety": "Gaming", "product_rating": 4.5, "product_stock": 10, "created_at": "2024-09-08T12:34:56Z", "updated_at": "2024-09-08T12:34:56Z" } ]   |
+| Not Found (404 Not Found)  | {"message": "No Product"} | 
+| Error (500 Internal Server Error)   | { "error": "Database error: [error message]" } |
+
 * **GET /products/:id** : Get a product by ID.
+
+| Method        | GET           | 
+|---------------------|----------------------|
+| URL       | /products/:id             |
+| Path Parameters    | id (integer) [The ID of the product]       | 
+|Request Body Type | -            |
+| Request Body    | -  |
+| Response (200 OK)   | { "id": 1, "name": "Product Name", "description": "Product Description", "price": 99.99, "variety": "Size, Color", "rating": 4.5, "stock": 100, "created_at": "2024-09-07T12:00:00Z", "updated_at": "2024-09-07T12:00:00Z" }   |
+| Not Found (404 Not Found)  | { "error": "Product with ID 1 not found." } | 
+| Error (500 Internal Server Error)   | { "error": "Database error: [error message]" } |
+
 * **PUT /products/:id** : Update a product by ID.
+
+| Method        | PUT           | 
+|---------------------|----------------------|
+| URL       | /products/:id             |
+| Path Parameters    | id (integer) [The ID of the product]       | 
+|Request Body Type | JSON            |
+| Request Body    | { "product_name": "Laptop SNSV Updated", "product_description": "Updated description", "product_price": 12.00, "product_variety": "Gaming", "product_rating": 4.8, "product_stock": 15 }  |
+| Response (200 OK)   | { "message": "Product updated successfully" }   |
+| Error (400 Bad Request)  | { "errors": [{"type": "field", "msg": "Product stock is required", "path": "product_stock","location": "body"},  {"type": "field","msg": "Stock must be a non-negative integer","path": "product_stock","location": "body"  }]} |
+| Not Found (404 Not Found)  | { "error": "Product with ID 1 not found." } | 
+| Error (500 Internal Server Error)   | { "error": "Database error: [error message]" } |
+
 * **DELETE /products/:id** : Delete a product by ID.
+
+| Method        | DELETE           | 
+|---------------------|----------------------|
+| URL       | /products/:id             |
+| Path Parameters    | id (integer) [The ID of the product]       | 
+|Request Body Type | -           |
+| Request Body    | -  |
+| Response (200 OK)   | { "message": "Product deleted successfully"}   |
+| Error (400 Bad Request)  | { "errors": [{"type": "field", "msg": "Product stock is required", "path": "product_stock","location": "body"},  {"type": "field","msg": "Stock must be a non-negative integer","path": "product_stock","location": "body"  }]} |
+| Not Found (404 Not Found)  | { "error": "Product with ID 1 not found." } | 
+| Error (500 Internal Server Error)   | { "error": "Database error: [error message]" } |
 
 ## Database Schema
 
