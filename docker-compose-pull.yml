@@ -1,6 +1,16 @@
 version: '3.8'
 
 services:
+  mysql:
+    image: mysql:8.0
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+      MYSQL_DATABASE: simple_task
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+
   node-app:
     image: broaditya/simple-product-api-mysql-node-app
     ports:
@@ -12,13 +22,4 @@ services:
       - DB_NAME=simple_task
     depends_on:
       - mysql
-
-  mysql:
-    image: mysql:8.0
-    ports:
-      - "3306:3306"
-    environment:
-      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
-      MYSQL_DATABASE: simple_task
-    volumes:
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    restart: always
